@@ -1,0 +1,236 @@
+
+import json
+import csv
+from pathlib import Path
+
+DATA_FILE = Path("students.json")
+
+
+def load_students():
+    if not DATA_FILE.exists():
+        return {}
+
+    try:
+        with DATA_FILE.open("r", encoding="utf-8") as file:
+            return json.load(file)
+    except (json.JSONDecodeError, OSError):
+        print("Unable to load student records.")
+        return {}
+
+
+def save_students(students):
+    with DATA_FILE.open("w", encoding="utf-8") as file:
+        json.dump(students, file, indent=4)
+
+
+def calculate_grade(average):
+    if average >= 90:
+        return "A+"
+    elif average >= 80:
+        return "A"
+    elif average >= 70:
+        return "B"
+    elif average >= 60:
+        return "C"
+    elif average >= 50:
+        return "D"
+    return "F"
+
+
+def get_marks():
+    while True:
+        try:
+            marks = float(input("Enter marks (0-100): "))
+            if 0 <= marks <= 100:
+                return marks
+            print("Marks must be between 0 and 100.")
+        except ValueError:
+            print("Please enter a valid number.")
+
+
+def add_student(students):
+    student_id = input("Student ID: ").strip()
+
+    if not student_id:
+        print("Student ID cannot be empty.")
+        return
+
+    if student_id in students:
+        print("This student ID already exists.")
+        return
+
+    name = input("Student name: ").strip()
+
+    if not name:
+        print("Student name cannot be empty.")
+        return
+
+    students[student_id] = {
+        "name": name,
+        "subjects": {}
+    }
+
+    save_students(students)
+    print("Student added successfully!")
+
+
+def add_subject(students):
+    student_id = input("Student ID: ").strip()
+
+    if student_id not in students:
+        print("Student not found.")
+        return
+
+    subject = input("Subject name: ").strip()
+
+    if not subject:
+        print("Subject name cannot be empty.")
+        return
+
+    print(f"Entering marks for {subject}")
+    marks = get_marks()
+
+    students[student_id]["subjects"][subject] = marks
+    save_students(students)
+
+    print("Marks saved successfully!")
+
+
+def student_result(student):
+    subjects = student["subjects"]
+
+    if not subjects:
+        return 0, 0, "N/A"
+
+    total = sum(subjects.values())
+    average = total / len(subjects)
+    grade = calculate_grade(average)
+
+    return total, average, grade
+
+
+def display_student(student_id, student):
+    total, average, grade = student_result(student)
+
+    print("\n" + "=" * 45)
+    print("STUDENT ACADEMIC REPORT")
+    print("=" * 45)
+    print(f"ID: {student_id}")
+    print(f"Name: {student['name']}")
+
+    print("\nSubjects:")
+    if not student["subjects"]:
+        print("No subjects recorded.")
+
+    for subject, marks in student["subjects"].items():
+        print(f"  {subject}: {marks:.2f}/100")
+
+    print(f"\nTotal Marks: {total:.2f}")
+    print(f"Average: {average:.2f}%")
+    print(f"Grade: {grade}")
+    print("=" * 45)
+
+
+def search_student(students):
+    student_id = input("Enter Student ID: ").strip()
+
+    if student_id in students:
+        display_student(student_id, students[student_id])
+    else:
+        print("Student not found.")
+
+
+def show_all_students(students):
+    if not students:
+        print("No students available.")
+        return
+
+    for student_id, student in students.items():
+        display_student(student_id, student)
+
+
+def top_student(students):
+    ranked = []
+
+    for student_id, student in students.items():
+        if student["subjects"]:
+            _, average, _ = student_result(student)
+            ranked.append((average, student_id, student))
+
+    if not ranked:
+        print("No student marks available.")
+        return
+
+    ranked.sort(reverse=True)
+    average, student_id, student = ranked[0]
+
+    print("\nTOP PERFORMING STUDENT")
+    display_student(student_id, student)
+
+
+def export_csv(students):
+    filename = "student_results.csv"
+
+    with open(filename, "w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+
+        writer.writerow([
+            "Student ID",
+            "Name",
+            "Subjects",
+            "Total Marks",
+            "Average Percentage",
+            "Grade"
+        ])
+
+        for student_id, student in students.items():
+            total, average, grade = student_result(student)
+
+            writer.writerow([
+                student_id,
+                student["name"],
+                len(student["subjects"]),
+                round(total, 2),
+                round(average, 2),
+                grade
+            ])
+
+    print(f"Results exported to {filename}")
+
+
+def main():
+    students = load_students()
+
+    while True:
+        print("\n===== STUDENT GRADE MANAGEMENT =====")
+        print("1. Add Student")
+        print("2. Add or Update Subject Marks")
+        print("3. Search Student")
+        print("4. Display All Students")
+        print("5. Show Top Student")
+        print("6. Export Results to CSV")
+        print("7. Exit")
+
+        choice = input("\nChoose an option (1-7): ").strip()
+
+        if choice == "1":
+            add_student(students)
+        elif choice == "2":
+            add_subject(students)
+        elif choice == "3":
+            search_student(students)
+        elif choice == "4":
+            show_all_students(students)
+        elif choice == "5":
+            top_student(students)
+        elif choice == "6":
+            export_csv(students)
+        elif choice == "7":
+            print("Thank you for using the system!")
+            break
+        else:
+            print("Invalid option. Please try again.")
+
+
+if __name__ == "__main__":
+    main()
